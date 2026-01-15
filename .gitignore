@@ -1,0 +1,4 @@
+# Files
+.env
+static_data/swpe_local_tax_listing.xlsx
+static_data/swpe_sui_tax_listing.xlsx
