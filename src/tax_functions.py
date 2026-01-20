@@ -17,8 +17,8 @@ def get_location_from_input_file(aggregated_input_df, checknum, location_col, in
     return None
 
 def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df, deduction_mapping_json):
-    samples = 30
-    deduction_df = deduction_df[:samples]
+    #samples = 30
+    #deduction_df = deduction_df[:samples]
     tax_types = deduction_template_df.loc[7, "Enumerated/Acceptable Values"]
     tax_type_list = tax_types.split("\n")
     input_cols = aggregated_input_df.columns.to_list()
