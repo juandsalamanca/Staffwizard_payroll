@@ -2,15 +2,17 @@ import os
 import pandas as pd
 import asyncio
 import json
+from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.responses import FileResponse
 from src.llm_functions import payroll_transformer
-from src.preprocessing_fucntions import assert_is_date, preprocess_numeric_data, preprocess_input, preprocess_template
+from src.preprocessing_functions import assert_is_date, preprocess_numeric_data, preprocess_input, preprocess_template
 from src.check_data import build_check_data
 from src.deduction_data import build_deduction_data
 import zipfile
-
 import aiofiles
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -37,6 +39,9 @@ async def save_output_csvs(check_data_df: pd.DataFrame, deduction_df: pd.DataFra
 @app.post("/process_payroll")
 async def process_payroll(input_file: UploadFile=File(...)):
 
+    os.makedirs(upload_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
+
     # First we save the file for traceability
     file_path = os.path.join(upload_dir, input_file.filename)
     content = await input_file.read()
@@ -56,7 +61,7 @@ async def process_payroll(input_file: UploadFile=File(...)):
     deduction_mapping_json = json.loads(deduction_mapping)
 
     # Build the Check data spreadsheet
-    check_data_task = asyncio.to_thread(build_check_data, input_df, check_mapping_json, deduction_template_df)
+    check_data_task = asyncio.to_thread(build_check_data, input_df, check_mapping_json)
 
     # Build the deduction data spreadsheet
     deduction_data_task = asyncio.create_task(build_deduction_data(input_df, deduction_mapping_json, check_mapping_json, deduction_template_df))

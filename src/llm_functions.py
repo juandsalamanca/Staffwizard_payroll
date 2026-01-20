@@ -1,9 +1,9 @@
 import openai
 
-def payroll_transformer(columns, input, model):
+async def payroll_transformer(columns, input, model):
 
     # Replace with your desired model
-    client = openai.OpenAI()
+    client = openai.AsyncOpenAI()
 
     # Construct the prompt using formatted strings
 
@@ -29,10 +29,9 @@ def payroll_transformer(columns, input, model):
     prompt += f"""Output columns with their descriptions: [{columns}]
                 """
 
-    if "Tier1id" in columns:
-        prompt += f"""Tier1id, Tier2id and Tier3id refer to the IDs of the subdivisions of the workplace in hierarchical order.
-                For example: Company, department, office for tier 1, 2 and 3 respectively.
-                If there is nothing in the input that clearly maps to these, you can leave them empty."""
+    if "Tier1Id" in columns:
+        prompt += f"""Tier1id, Tier2id and Tier3id must be found with these exact names in the input columns in order to be mapped
+                If there is nothing in the input with those exact names just leave the corresponding fields empty."""
 
 
     messages = [
@@ -43,7 +42,7 @@ def payroll_transformer(columns, input, model):
     ]
 
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model=model,
         messages=messages,
         max_tokens=2000,

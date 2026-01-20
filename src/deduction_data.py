@@ -116,9 +116,12 @@ def get_one_row_per_earning_or_deduction(aggregated_input_df, deduction_mapping_
 async def build_deduction_data(input_df, deduction_mapping_json, check_mapping_json, deduction_template_df):
     tax_listing_task = asyncio.to_thread(load_tax_listings)
     aggregated_input_df = await asyncio.to_thread(aggregate_check_data,input_df)
+    print("Aggregated input data")
     deduction_df = await asyncio.to_thread(get_one_row_per_earning_or_deduction,aggregated_input_df, deduction_mapping_json, check_mapping_json)
+    print("Aggregated deduction data")
     state_tax_df, local_tax_df = await tax_listing_task
-    processed_deduction_df = await asyncio.to_thread(get_tax_codes, deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df)
+    processed_deduction_df = await asyncio.to_thread(get_tax_codes, deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df, deduction_mapping_json)
+    print("Processed deduction data")
     processed_deduction_df = await asyncio.to_thread(aggregate_employee_employer_taxes, processed_deduction_df)
     return processed_deduction_df
 

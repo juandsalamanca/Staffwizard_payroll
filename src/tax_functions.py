@@ -4,8 +4,8 @@ import json
 from src.llm_functions import get_state_code, map_tax_types, get_correct_tax_name, get_correct_state_tax_code, detect_state_and_local_columns
 
 def load_tax_listings():
-    state_tax_df = pd.read_csv("/static_data/swpe_sui_tax_listing.csv")
-    local_tax_df = pd.read_csv("/static_data/swpe_local_tax_listing.csv")
+    state_tax_df = pd.read_excel("./static_data/swpe_sui_tax_listing.xlsx")
+    local_tax_df = pd.read_excel("./static_data/swpe_local_tax_listing.xlsx")
     return state_tax_df, local_tax_df
 
 def get_location_from_input_file(aggregated_input_df, checknum, location_col, input_checknum_col):
@@ -16,7 +16,9 @@ def get_location_from_input_file(aggregated_input_df, checknum, location_col, in
   else:
     return None
 
-def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df):
+def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df, deduction_mapping_json):
+    samples = 30
+    deduction_df = deduction_df[:samples]
     tax_types = deduction_template_df.loc[7, "Enumerated/Acceptable Values"]
     tax_type_list = tax_types.split("\n")
     input_cols = aggregated_input_df.columns.to_list()
@@ -24,6 +26,7 @@ def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, stat
     gpt_json = json.loads(detect_state_and_local_columns(input_cols, "gpt-4o-mini"))
     state_col = gpt_json["state_column"]
     local_col = gpt_json["city_county_column"]
+    input_checknum_col = deduction_mapping_json["CheckNum"][0]
     tax_code_list = """SIT (State Income Tax)
       SDI (Employee SDI Tax)
       ER_SDI (Employer SDI Tax)
@@ -31,8 +34,8 @@ def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, stat
       ER_FLI (Employer FLI Tax)"""
     for i in range(len(deduction_df)):
         checknum = deduction_df.loc[i, "CheckNum"]
-        state = get_location_from_input_file(aggregated_input_df, checknum, state_col)
-        local = get_location_from_input_file(aggregated_input_df, checknum, local_col)
+        state = get_location_from_input_file(aggregated_input_df, checknum, state_col, input_checknum_col)
+        local = get_location_from_input_file(aggregated_input_df, checknum, local_col, input_checknum_col)
         state_code = get_state_code(state)
         input_tax_type = deduction_df.loc[i, "TaxType"]
         if input_tax_type:
@@ -42,7 +45,7 @@ def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, stat
             # For the SUI taxes we used the SUI df, filter by state and map one of the remaining options
             if correct_tax_type == "SU (SUI)":
                 cropped_state_tax_df = state_tax_df.loc[state_tax_df["State"] == state_code]
-                state_tax_name_list = cropped_state_tax_df["Name.1"].to_list()
+                state_tax_name_list = cropped_state_tax_df["Name"].to_list()
                 correct_tax_name = get_correct_tax_name(input_tax_type, state_tax_name_list, local)
                 if correct_tax_name != "None":
                     idx = state_tax_name_list.index(correct_tax_name)
@@ -52,7 +55,7 @@ def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, stat
             # For the local taxes we use the local tax df, filter by state and map one of the remaining options
             elif correct_tax_type == "CT (Local Tax)":
                 cropped_local_tax_df = local_tax_df.loc[local_tax_df["State"] == state_code]
-                local_tax_name_list = cropped_local_tax_df["Name.1"].to_list()
+                local_tax_name_list = cropped_local_tax_df["Name"].to_list()
                 correct_tax_name = get_correct_tax_name(input_tax_type, local_tax_name_list, local)
                 if correct_tax_name != "None":
                     idx = local_tax_name_list.index(correct_tax_name)
@@ -98,7 +101,7 @@ def aggregate_employee_employer_taxes(processed_deduction_df):
             tax_type_list.append(tax_type)
             idx_list.append(i)
         else:
-            print("Duplicate:", tax_type)
+            #print("Duplicate:", tax_type)
             # If the tax is federal (no tax code) we aggregate taxliab and taxded
             if tax_code == "":
                 idx = tax_type_list.index(tax_type)
