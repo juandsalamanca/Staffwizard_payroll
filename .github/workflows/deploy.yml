@@ -19,6 +19,7 @@ jobs:
           port: 22
           script: |
             set -e
+            cd payroll/Staffwizard_payroll
             echo "Stopping old container if it exists..."
             sudo docker stop payroll_container || true
             sudo docker rm payroll_container || true
