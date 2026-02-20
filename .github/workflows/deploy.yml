@@ -30,8 +30,6 @@ jobs:
             
             echo "Building image..."
             sudo docker build -t payroll:latest .
-            cd payroll/Staffwizard_payroll
-            sudo docker build -t payroll:latest .
             sudo docker run -d \
             --name payroll_container \
             -p 0.0.0.0:5001:5001 \
