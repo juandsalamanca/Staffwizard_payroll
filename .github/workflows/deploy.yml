@@ -20,14 +20,14 @@ jobs:
           script: |
             set -e
             echo "Stopping old container if it exists..."
-            docker stop payroll_container || true
-            docker rm payroll_container || true
+            sudo docker stop payroll_container || true
+            sudo docker rm payroll_container || true
           
             echo "Building image..."
-            docker build -t payroll:latest .
+            sudo docker build -t payroll:latest .
             cd payroll/Staffwizard_payroll
-            docker build -t payroll:latest .
-            docker run -d \
+            sudo docker build -t payroll:latest .
+            sudo docker run -d \
             --name payroll_container \
             -p 0.0.0.0:5001:5001 \
             --restart unless-stopped \
