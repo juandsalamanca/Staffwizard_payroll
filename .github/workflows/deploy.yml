@@ -22,7 +22,11 @@ jobs:
             echo "Stopping old container if it exists..."
             sudo docker stop payroll_container || true
             sudo docker rm payroll_container || true
-          
+            
+            echo "Pulling latest commit"
+            git switch main
+            git pull origin main
+            
             echo "Building image..."
             sudo docker build -t payroll:latest .
             cd payroll/Staffwizard_payroll
