@@ -1,11 +1,12 @@
 # Files
 .env
-static_data/swpe_local_tax_listing.xlsx
-static_data/swpe_sui_tax_listing.xlsx
 static_data/ADP - GTS .xlsx
 static_data/results.zip
 
 # Folders
+__pycache__/
 input_files/
 output_files/
 static_data/results/
+src/__pycache__/
+src/rippling/__pycache__
