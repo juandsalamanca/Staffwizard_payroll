@@ -3,12 +3,15 @@ import asyncio
 from src.check_data import get_correct_date_format
 from src.tax_functions import load_tax_listings, get_location_from_input_file, get_tax_codes, aggregate_employee_employer_taxes
 
+
+check_col = "CHECK/VOUCHER NUMBER"
+
 def aggregate_check_data(input_df):
     # We consider only the rows that have a checknumber to discrad the subtotals and not overcount
     input_cols = input_df.columns
     aggregated_input = {}
     for i in range(len(input_df)):
-        checknum = input_df.loc[i, "CHECK/VOUCHER NUMBER"]
+        checknum = input_df.loc[i, check_col]
         if checknum != 0.0:
             if checknum not in aggregated_input:
                 aggregated_input[checknum] = {}
@@ -49,9 +52,10 @@ def get_one_row_per_earning_or_deduction(aggregated_input_df, deduction_mapping_
     liab_len = len(deduction_mapping_json["TaxLiab"])
     earning_len = len(deduction_mapping_json["Earnings"])
     edm_len = ded_len + liab_len + earning_len
+
     for i, row in enumerate(aggregated_input_df.iterrows()):
         row = row[1]
-        checknum = row["CHECK/VOUCHER NUMBER"]
+        checknum = row[check_col]
         for col in deduction_mapping_json:
             input_col = deduction_mapping_json[col]
             if input_col:
@@ -107,9 +111,24 @@ def get_one_row_per_earning_or_deduction(aggregated_input_df, deduction_mapping_
                     output_json[col].extend([row[input_col[0]]] * edm_len)
 
                 # This way we insert tax_len values in the output rows for each row of the input
+            # TaxType and DetailType get filled with the correct amount of values from the operations when dealing with taxliab, taxded and earnings
+            # Therefore we cannot insert the Nones when the list of mapped cols is empty which is the case for the these two.
 
-            else:
+            elif col not in ["TaxType", "DetailType"]:
                 output_json[col].extend(["None"] * edm_len)
+        ref_l = len(output_json["CheckNum"])
+        f = False
+        for key in output_json:
+            l = len(output_json[key])
+            if l != ref_l:
+                print(f"Misalignment found with row {i}!")
+                print(f"Misaligned l: {key}; {l} vs {ref_l}")
+                f = True
+
+        if f:
+            for key in output_json:
+                print(key, output_json[key])
+            break
     deduction_df = pd.DataFrame(output_json)
     return deduction_df
 
@@ -120,8 +139,8 @@ async def build_deduction_data(input_df, deduction_mapping_json, check_mapping_j
     deduction_df = await asyncio.to_thread(get_one_row_per_earning_or_deduction,aggregated_input_df, deduction_mapping_json, check_mapping_json)
     print("Aggregated deduction data")
     state_tax_df, local_tax_df = await tax_listing_task
-    processed_deduction_df = await asyncio.to_thread(get_tax_codes, deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df, deduction_mapping_json)
+    processed_deduction_df, tax_mappings_df = await asyncio.to_thread(get_tax_codes, deduction_df, aggregated_input_df, deduction_template_df, state_tax_df, local_tax_df, deduction_mapping_json)
     print("Processed deduction data")
     processed_deduction_df = await asyncio.to_thread(aggregate_employee_employer_taxes, processed_deduction_df)
-    return processed_deduction_df
+    return processed_deduction_df, tax_mappings_df
 

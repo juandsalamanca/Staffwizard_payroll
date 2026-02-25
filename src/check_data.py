@@ -8,9 +8,11 @@ def get_correct_date_format(date_string):
 def build_check_data(input_df, check_mapping_json):
     output_json = {}
 
+    check_col = "CHECK/VOUCHER NUMBER"
+
     for i, row in enumerate(input_df.iterrows()):
         row = row[1]
-        checknum = row["CHECK/VOUCHER NUMBER"]
+        checknum = row[check_col]
         # We don't count the rows that contain subtotals in order to not overcount
         # The rows corresponding to subtotals, had NaN as Checknum. Now they have a 0
         if checknum != 0.0:
@@ -41,15 +43,26 @@ def build_check_data(input_df, check_mapping_json):
             # Since the columns go in th order first, middle and last name we can define all of them when we get to the first name column
             # We later set the middle and last names when we arrive to their respective columns
             if col == "FirstName":
-                spl = output_json[checknum][col].split(",")
-                last_name = spl[0]
-                name_spl = spl[1].strip().split(" ")
-                first_name = name_spl[0]
-                # If there is a middle name, we save it
-                if len(name_spl) > 1:
-                    middle_name = name_spl[1]
+                # print(output_json[checknum][col])
+                if "," in output_json[checknum][col]:
+                    spl = output_json[checknum][col].split(",")
+                    last_name = spl[0]
+                    name_spl = spl[1].strip().split(" ")
+                    first_name = name_spl[0]
+                    # If there is a middle name, we save it
+                    if len(name_spl) > 1:
+                        middle_name = name_spl[1]
+                    else:
+                        middle_name = "None"
                 else:
-                    middle_name = "None"
+                    spl = output_json[checknum][col].split()
+                    first_name = spl[0]
+                    last_name = spl[-1]
+                    if len(spl) > 2:
+                        middle_name = spl[1]
+                    else:
+                        middle_name = "None"
+
                 final_output[col].append(first_name)
             elif col == "MiddleName":
                 final_output[col].append(middle_name)

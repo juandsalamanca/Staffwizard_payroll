@@ -1,6 +1,7 @@
 import openai
+import json
 
-async def payroll_transformer(columns, input, model):
+async def payroll_transformer(columns, input_cols, model):
 
     # Replace with your desired model
     client = openai.AsyncOpenAI()
@@ -21,7 +22,7 @@ async def payroll_transformer(columns, input, model):
 
                 Now I'll give you the real data you have to work with:
 
-                Input columns: [{input}]
+                Input columns: [{input_cols}]
 
 
                 """
@@ -45,14 +46,11 @@ async def payroll_transformer(columns, input, model):
     response = await client.chat.completions.create(
         model=model,
         messages=messages,
-        max_tokens=2000,
-        n=1,
-        stop=None,
-        temperature=0.1,
         response_format={ "type": "json_object" }
     )
 
     return response.choices[0].message.content
+
 
 def map_tax_types(input_tax_type, tax_type_list):
 

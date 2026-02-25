@@ -1,6 +1,7 @@
 import pandas as pd
 import time
 import json
+from tqdm import tqdm
 from src.llm_functions import get_state_code, map_tax_types, get_correct_tax_name, get_correct_state_tax_code, detect_state_and_local_columns
 
 def load_tax_listings():
@@ -32,7 +33,7 @@ def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, stat
       ER_SDI (Employer SDI Tax)
       FLI (Employee FLI Tax)
       ER_FLI (Employer FLI Tax)"""
-    for i in range(len(deduction_df)):
+    for i in tqdm(range(len(deduction_df)), desc="Determining tax codes"):
         checknum = deduction_df.loc[i, "CheckNum"]
         state = get_location_from_input_file(aggregated_input_df, checknum, state_col, input_checknum_col)
         local = get_location_from_input_file(aggregated_input_df, checknum, local_col, input_checknum_col)
@@ -80,7 +81,7 @@ def get_tax_codes(deduction_df, aggregated_input_df, deduction_template_df, stat
 
     tax_mappings_df = pd.DataFrame(tax_mappings)
     tax_mappings_df.to_csv("./output_files/tax_mappings.csv")
-    return deduction_df
+    return deduction_df, tax_mappings_df
 
 def aggregate_employee_employer_taxes(processed_deduction_df):
     current_checknum = ""

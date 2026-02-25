@@ -1,4 +1,5 @@
 import pandas as pd
+from src.rippling.format_normalization import normalize_data_packets, normalize_pay_periods
 
 def assert_is_date(date_string):
     try:
@@ -42,7 +43,7 @@ def preprocess_numeric_data(num):
     else:
         return 0.0
 
-def preprocess_template():
+def preprocess_template(confusing_cols):
 
     template_path = "./static_data/Payroll Import Template.xlsx"
 
@@ -58,6 +59,7 @@ def preprocess_template():
             add_info = ""
         check_col_desc += f"{col}: {desc} {add_info}\n"
 
+    # Columns that confuse the LLM and throw off the tax mappings
 
     deduction_template_df = pd.read_excel(template_path, sheet_name="EarningsDeductions Legend")
     # Build the columns description string:
@@ -65,6 +67,12 @@ def preprocess_template():
     for i in range(len(deduction_template_df)):
         col = deduction_template_df.loc[i, "Column"]
         desc = deduction_template_df.loc[i, "Description"]
+        if col in confusing_cols:
+            continue
+        if col == "TaxDed":
+            desc = "Any Tax deduction paid by the EMPLOYEE"
+        elif col == "TaxLiab":
+            desc = "Any Tax deduction paid by the EMPLOYER"
         deduction_col_desc += f"{col}: {desc}\n"
 
     # We'll add an extra one called earnings just so GPT can map it to all the different kinds of earnings
@@ -76,10 +84,34 @@ def preprocess_template():
 
     return check_col_desc, deduction_col_desc, tax_type_list, deduction_template_df
 
+def detect_input_format(input_df):
+
+    try:
+        input_df, total_employer_taxes, total_employee_taxes = normalize_data_packets(input_df)
+        input_df = normalize_pay_periods(input_df)
+        input_format = "rippling"
+    except Exception as e:
+        print(e)
+        input_format = "ADP"
+
+    print("Input format:", input_format)
+
+    return input_format, input_df
+
 def preprocess_input(file_path):
-    input_df = pd.read_excel(file_path)
+
+    if file_path.endswith(".xlsx"):
+        input_df = pd.read_excel(file_path)
+    elif file_path.endswith(".csv"):
+        input_df = pd.read_csv(file_path)
+    elif file_path.endswith(".json"):
+        input_df = pd.read_json(file_path)
+    else:
+        raise Exception("Invalid file format")
+
+    input_format, input_df = detect_input_format(input_df)
     input_cols = input_df.columns.to_list()
     input_df = input_df.fillna(0)
     for col in input_df.columns:
         input_df[col] = input_df[col].apply(preprocess_numeric_data)
-    return input_df, input_cols
+    return input_df, input_cols, input_format
