@@ -4,7 +4,7 @@ import asyncio
 import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from src.llm_functions import payroll_transformer
 from src.preprocessing_functions import assert_is_date, preprocess_numeric_data, preprocess_input, preprocess_template
 from src.check_data import build_check_data
@@ -16,6 +16,88 @@ import traceback
 load_dotenv()
 
 app = FastAPI()
+
+@app.get("/", response_class=HTMLResponse)
+async def home():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Payroll Automation</title>
+        <style>
+            body {
+                margin: 0;
+                font-family: Arial, Helvetica, sans-serif;
+                background-color: #0B1F3A; /* dark blue */
+                color: white;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+    
+            .container {
+                text-align: center;
+                background-color: white;
+                color: #0B1F3A;
+                padding: 50px 60px;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                max-width: 600px;
+            }
+    
+            h1 {
+                margin-top: 0;
+                font-size: 32px;
+            }
+    
+            p {
+                font-size: 16px;
+                margin-bottom: 20px;
+            }
+    
+            .btn {
+                display: inline-block;
+                background-color: #0B1F3A;
+                color: white;
+                padding: 14px 28px;
+                border: none;
+                border-radius: 6px;
+                font-size: 16px;
+                cursor: pointer;
+                text-decoration: none;
+                transition: all 0.3s ease;
+            }
+    
+            .btn:hover {
+                background-color: #163A6B;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            }
+    
+            .footer {
+                margin-top: 30px;
+                font-size: 13px;
+                opacity: 0.7;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Payroll Automation</h1>
+            <p>The server is running properly.</p>
+            <p>To test the payroll automation, add <strong>/docs</strong> to the URL or click the button below.</p>
+    
+            <a href="/docs" class="btn">
+                Launch Payroll System
+            </a>
+    
+            <div class="footer">
+                Secure • Automated • Reliable
+            </div>
+        </div>
+    </body>
+    </html>"""
 
 @app.get("/health")
 async def health():
