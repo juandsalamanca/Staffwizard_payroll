@@ -1,5 +1,31 @@
 import openai
 import json
+from pydantic import BaseModel
+
+
+
+class TotalColumns(BaseModel):
+    total_columns: list[str]
+
+
+def get_total_columns(cols, model):
+    client = openai.OpenAI()
+
+    prompt = f"""I'll provide a list of column names from a dataframe corresponding to a payroll document. You need to identify the columns that
+    correspond to total or aggregated amounts such as 'Total Earnings' or 'Total Taxes'. Return this in JSON format where there will be one key:
+    total_columns, which will contain a list of strings that will be the list of column named correctly classified as a total.
+    
+    Here are the input columns:
+    {cols}"""
+
+    response = client.responses.parse(
+        model=model,
+        input=prompt,
+        text_format=TotalColumns
+    )
+
+    return response.output_parsed.total_columns
+
 
 async def payroll_transformer(columns, input_cols, model):
 
@@ -11,23 +37,28 @@ async def payroll_transformer(columns, input_cols, model):
     prompt = f"""I will give you some column names from a payroll document and I need you to give me the way to map those into the
                 output columns. I'll also provide for you with a small explanation/description for each of the output columns.
                 You can map more than one column in the input to one in the output if you think they all correspond to the same category.
-                I need this response in JSON format.
+                I need this response in JSON format. Do NOT leave any of the output columns out of the JSON. 
+                If you think there is no suitable match in the input columns for one of the output columns then, for that field, leave an empty list.
+                Remember, ALL output columns must be present as fields in the JSON. 
+                The fields of the JSON should ONLY be the provided output columns and nothing else. Do not return  
+                a JSON with any additional fields or with any of the output columns missing. 
 
                 Here's an small mock example:
+                
+                ----EXAMPLE START-----
 
                 Input columns: [Tax_1, Tax_2, Income]
-                Output columns: [Taxes, Income]
+                Output columns with descriptions: [Taxes: Any tax deduction, Income: Any earning for the employee]
 
                 Mapping: {{Taxes: [Tax_1, Tax_2], Income: [Income]}}
+                
+                ----EXAMPLE END-----
 
                 Now I'll give you the real data you have to work with:
 
                 Input columns: [{input_cols}]
+                Output columns with descriptions: [{columns}]
 
-
-                """
-
-    prompt += f"""Output columns with their descriptions: [{columns}]
                 """
 
     if "Tier1Id" in columns:

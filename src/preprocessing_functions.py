@@ -1,5 +1,8 @@
 import pandas as pd
-from src.rippling.format_normalization import normalize_data_packets, normalize_pay_periods
+from src.rippling.format_normalization import preprocess_rippling
+from src.quickbooks.format_normalization import preprocess_quickbooks
+from src.pst.format_normalization import preprocess_pst
+import traceback
 
 def assert_is_date(date_string):
     try:
@@ -55,6 +58,8 @@ def preprocess_template(confusing_cols):
         desc = check_template_df.loc[i, "Description"]
         if col == "SSN":
             add_info = "Also known as Tax ID"
+        elif col == "FirstName":
+            add_info = "If there is only one column with the entire employee name, put it here"
         else:
             add_info = ""
         check_col_desc += f"{col}: {desc} {add_info}\n"
@@ -86,22 +91,39 @@ def preprocess_template(confusing_cols):
 
 def detect_input_format(input_df):
 
+    input_format = "ADP"
     try:
-        input_df, total_employer_taxes, total_employee_taxes = normalize_data_packets(input_df)
-        input_df = normalize_pay_periods(input_df)
+        input_df = preprocess_rippling(input_df)
         input_format = "rippling"
     except Exception as e:
-        print(e)
-        input_format = "ADP"
+        print("RIPPLING ERROR")
+        traceback.print_exc()
+        print("-"*100)
+
+        try:
+            input_df = preprocess_quickbooks(input_df)
+            input_format = "quickbooks"
+        except Exception as e:
+            print("QUICKBOOKS ERROR")
+            traceback.print_exc()
+            print("-" * 100)
+
+            try:
+                input_df = preprocess_pst(input_df)
+                input_format = "pst"
+            except Exception as e:
+                print("PST ERROR")
+                traceback.print_exc()
+                print("-" * 100)
 
     print("Input format:", input_format)
 
     return input_format, input_df
 
-def preprocess_input(file_path):
+def preprocess_input(file_path, sheet):
 
     if file_path.endswith(".xlsx"):
-        input_df = pd.read_excel(file_path)
+        input_df = pd.read_excel(file_path, sheet_name=sheet)
     elif file_path.endswith(".csv"):
         input_df = pd.read_csv(file_path)
     elif file_path.endswith(".json"):

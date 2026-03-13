@@ -4,6 +4,7 @@ import asyncio
 import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
+from typing import Optional
 from fastapi.responses import FileResponse, HTMLResponse
 from src.llm_functions import payroll_transformer
 from src.preprocessing_functions import assert_is_date, preprocess_numeric_data, preprocess_input, preprocess_template
@@ -19,85 +20,9 @@ app = FastAPI()
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Payroll Automation</title>
-        <style>
-            body {
-                margin: 0;
-                font-family: Arial, Helvetica, sans-serif;
-                background-color: #0B1F3A; /* dark blue */
-                color: white;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-            }
-    
-            .container {
-                text-align: center;
-                background-color: white;
-                color: #0B1F3A;
-                padding: 50px 60px;
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-                max-width: 600px;
-            }
-    
-            h1 {
-                margin-top: 0;
-                font-size: 32px;
-            }
-    
-            p {
-                font-size: 16px;
-                margin-bottom: 20px;
-            }
-    
-            .btn {
-                display: inline-block;
-                background-color: #0B1F3A;
-                color: white;
-                padding: 14px 28px;
-                border: none;
-                border-radius: 6px;
-                font-size: 16px;
-                cursor: pointer;
-                text-decoration: none;
-                transition: all 0.3s ease;
-            }
-    
-            .btn:hover {
-                background-color: #163A6B;
-                transform: translateY(-2px);
-                box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-            }
-    
-            .footer {
-                margin-top: 30px;
-                font-size: 13px;
-                opacity: 0.7;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Payroll Automation</h1>
-            <p>The server is running properly.</p>
-            <p>To test the payroll automation, add <strong>/docs</strong> to the URL or click the button below.</p>
-    
-            <a href="/docs" class="btn">
-                Launch Payroll System
-            </a>
-    
-            <div class="footer">
-                Secure • Automated • Reliable
-            </div>
-        </div>
-    </body>
-    </html>"""
+
+    with open("index.html") as f:
+        return f.read()
 
 @app.get("/health")
 async def health():
@@ -123,7 +48,7 @@ async def save_output_csvs(check_data_df: pd.DataFrame, deduction_df: pd.DataFra
     return zip_path
 
 @app.post("/process_payroll")
-async def process_payroll(input_file: UploadFile=File(...)):
+async def process_payroll(input_file: UploadFile=File(...), sheet: Optional[str] = Form(0)):
 
     os.makedirs(upload_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
@@ -140,16 +65,28 @@ async def process_payroll(input_file: UploadFile=File(...)):
 
         confusing_cols = ["DetailType", "TaxType", "TaxCode", "TaxablePay", "PayAmt"]
         template_task = asyncio.to_thread(preprocess_template, confusing_cols)
-        preprocess_task = asyncio.to_thread(preprocess_input, file_path)
+        preprocess_task = asyncio.to_thread(preprocess_input, file_path, sheet)
         (check_col_desc, deduction_col_desc, tax_type_list, deduction_template_df), (input_df, input_cols, input_format) = await asyncio.gather(template_task, preprocess_task)
         print("Preprocessing done")
         # Create the appropriate column mappings for each output
         check_mapping_task = asyncio.create_task(payroll_transformer(check_col_desc, input_cols, "gpt-4o"))
         deduction_mapping_task = asyncio.create_task(payroll_transformer(deduction_col_desc, input_cols, "gpt-5.2"))
+
+
         check_mapping, deduction_mapping = await asyncio.gather(check_mapping_task, deduction_mapping_task)
+
         print("Column mapping done")
         check_mapping_json = json.loads(check_mapping)
         deduction_mapping_json = json.loads(deduction_mapping)
+
+        # If no Chek number was found we create one:
+        if not check_mapping_json["CheckNum"]:
+            check_mapping_json["CheckNum"] = ["CHECK/VOUCHER NUMBER"]
+            deduction_mapping_json["CheckNum"] = ["CHECK/VOUCHER NUMBER"]
+            input_df["CHECK/VOUCHER NUMBER"] = [i + 1 for i in range(len(input_df))]
+        print(f"Check mapping: \n {check_mapping_json}")
+        print(f"Deduction mapping: \n {deduction_mapping_json}")
+
         if input_format == "rippling":
             if "California Employment Training Tax" in deduction_mapping_json["TaxDed"]:
                 deduction_mapping_json["TaxDed"].remove("California Employment Training Tax")

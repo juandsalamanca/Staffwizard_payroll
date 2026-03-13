@@ -85,3 +85,8 @@ def normalize_pay_periods(input_df):
     input_df = input_df.drop(columns=["Pay_period"])
 
     return input_df
+
+def preprocess_rippling(input_df):
+    input_df, total_employer_taxes, total_employee_taxes = normalize_data_packets(input_df)
+    input_df = normalize_pay_periods(input_df)
+    return input_df
